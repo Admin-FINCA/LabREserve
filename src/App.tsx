@@ -12,6 +12,28 @@ import Login from './components/Login';
 import { format, parse } from 'date-fns';
 import { useAuth, useProfile, useLaboratorios, useReservas } from './hooks/useSupabase';
 import { isSupabaseConfigured } from './lib/supabase';
+import { getSupabase } from '@/lib/supabase'
+
+function App() {
+  const supabase = getSupabase()
+
+  if (!supabase) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Aplicación cargada</h2>
+        <p>Servicios externos no disponibles.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* tu app normal */}
+    </div>
+  )
+}
+
+export default App
 
 export default function App() {
   const [selectedSpace, setSelectedSpace] = useState('minas');
