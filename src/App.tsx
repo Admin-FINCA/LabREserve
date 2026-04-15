@@ -11,6 +11,7 @@ import Modal from './components/Modal';
 import Login from './components/Login';
 import { format, parse } from 'date-fns';
 import { useAuth, useProfile, useLaboratorios, useReservas } from './hooks/useSupabase';
+import { isSupabaseConfigured } from './lib/supabase';
 
 export default function App() {
   const [selectedSpace, setSelectedSpace] = useState('minas');
@@ -86,9 +87,6 @@ export default function App() {
       }
     }
   }, [isAdmin, profile, profileLoading, selectedSpace]);
-
-  // Verificar si las variables de entorno están configuradas
-  const isSupabaseConfigured = !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   if (!isSupabaseConfigured) {
     return (

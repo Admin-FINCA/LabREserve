@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 /**
  * Hook para manejar la autenticación
@@ -9,9 +9,16 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      setLoading(false);
+    }).catch(() => {
       setLoading(false);
     });
 
@@ -35,11 +42,14 @@ export function useProfile(userId) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
 
     async function fetchProfile() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from('profiles')
           .select('*')
           .eq('id', userId)
@@ -47,7 +57,7 @@ export function useProfile(userId) {
 
         if (error) throw error;
         setProfile(data);
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);
@@ -64,14 +74,26 @@ export function useProfile(userId) {
  * Hook para obtener los laboratorios
  */
 export function useLaboratorios() {
-  const [laboratorios, setLaboratorios] = useState([]);
+  const [laboratorios, setLaboratorios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchLabs() {
-      const { data } = await supabase.from('laboratorios').select('*');
-      setLaboratorios(data || []);
+    if (!isSupabaseConfigured || !supabase) {
       setLoading(false);
+      return;
+    }
+
+    async function fetchLabs() {
+      try {
+        const { data } = await supabase!
+          .from('laboratorios')
+          .select('*');
+        setLaboratorios(data || []);
+      } catch (err) {
+        console.error('Error fetching labs:', err);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchLabs();
   }, []);
@@ -82,30 +104,35 @@ export function useLaboratorios() {
 /**
  * Hook para gestionar reservas estándar con suscripción en tiempo real
  */
-export function useReservas(labId) {
-  const [reservas, setReservas] = useState([]);
+export function useReservas(labId: string | number | undefined) {
+  const [reservas, setReservas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function fetchReservas() {
-    if (!labId) {
+    if (!labId || !isSupabaseConfigured || !supabase) {
       setReservas([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const { data } = await supabase
-      .from('reservas')
-      .select('*')
-      .eq('laboratorio_id', labId)
-      .order('fecha', { ascending: true });
-    setReservas(data || []);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from('reservas')
+        .select('*')
+        .eq('laboratorio_id', labId)
+        .order('fecha', { ascending: true });
+      setReservas(data || []);
+    } catch (err) {
+      console.error('Error fetching reservas:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     fetchReservas();
 
-    if (!labId) return;
+    if (!labId || !isSupabaseConfigured || !supabase) return;
 
     // Suscripción en tiempo real
     const channel = supabase
@@ -129,7 +156,8 @@ export function useReservas(labId) {
     };
   }, [labId]);
 
-  async function createReserva(reservaData) {
+  async function createReserva(reservaData: any) {
+    if (!isSupabaseConfigured || !supabase) return { data: null, error: new Error('Supabase not configured') };
     const { data, error } = await supabase
       .from('reservas')
       .insert([reservaData])
@@ -137,12 +165,14 @@ export function useReservas(labId) {
     return { data, error };
   }
 
-  async function deleteReserva(id) {
+  async function deleteReserva(id: string | number) {
+    if (!isSupabaseConfigured || !supabase) return { error: new Error('Supabase not configured') };
     const { error } = await supabase.from('reservas').delete().eq('id', id);
     return { error };
   }
 
-  async function updateReserva(id, updateData) {
+  async function updateReserva(id: string | number, updateData: any) {
+    if (!isSupabaseConfigured || !supabase) return { data: null, error: new Error('Supabase not configured') };
     const { data, error } = await supabase
       .from('reservas')
       .update(updateData)
@@ -157,27 +187,35 @@ export function useReservas(labId) {
 /**
  * Hook específico para la Cava
  */
-export function useReservasCava(fecha) {
-  const [disponibilidad, setDisponibilidad] = useState([]);
+export function useReservasCava(fecha: string | undefined) {
+  const [disponibilidad, setDisponibilidad] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function fetchCava() {
-    if (!fecha) return;
+    if (!fecha || !isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     
-    // Obtenemos bloques y su estado de reserva para la fecha
-    const { data, error } = await supabase
-      .from('cava_disponibilidad')
-      .select(`
-        id,
-        fecha,
-        bloque:cava_bloques_config(*),
-        reserva:reservas(*)
-      `)
-      .eq('fecha', fecha);
+    try {
+      // Obtenemos bloques y su estado de reserva para la fecha
+      const { data } = await supabase
+        .from('cava_disponibilidad')
+        .select(`
+          id,
+          fecha,
+          bloque:cava_bloques_config(*),
+          reserva:reservas(*)
+        `)
+        .eq('fecha', fecha);
 
-    setDisponibilidad(data || []);
-    setLoading(false);
+      setDisponibilidad(data || []);
+    } catch (err) {
+      console.error('Error fetching cava:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

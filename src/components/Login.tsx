@@ -10,6 +10,10 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabase) {
+      setError('El servicio de autenticación no está configurado correctamente.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
