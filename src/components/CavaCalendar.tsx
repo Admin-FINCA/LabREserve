@@ -127,11 +127,10 @@ export default function CavaCalendar({ reservations, onReserve }) {
             return (
               <button
                 key={hour}
-                onClick={() => !isReserved && onReserve(reservationKey)}
-                disabled={isReserved}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-200 group ${
+                onClick={() => onReserve(reservationKey)}
+                className={`w-full flex items-center justify-between p-4 rounded-2xl border group transition-transform active:scale-[0.98] ${
                   isReserved 
-                    ? 'bg-rose-50 border-rose-100 text-rose-600 cursor-not-allowed' 
+                    ? 'bg-rose-50 border-rose-100 text-rose-600' 
                     : 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 cursor-pointer'
                 }`}
               >

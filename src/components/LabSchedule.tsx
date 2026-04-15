@@ -40,11 +40,10 @@ export default function LabSchedule({ spaceId, reservations, onReserve }) {
                     return (
                       <td key={day} className="p-1 border-l border-slate-100 h-20">
                         <button
-                          onClick={() => !isReserved && onReserve(reservationKey)}
-                          disabled={isReserved}
-                          className={`w-full h-full rounded-xl transition-all duration-300 flex flex-col items-center justify-center gap-1 group relative overflow-hidden p-2 ${
+                          onClick={() => onReserve(reservationKey)}
+                          className={`w-full h-full rounded-xl flex flex-col items-center justify-center gap-1 group relative overflow-hidden p-2 transition-transform active:scale-95 ${
                             isReserved 
-                              ? 'bg-rose-50 text-rose-600 cursor-not-allowed border border-rose-100' 
+                              ? 'bg-rose-50 text-rose-600 border border-rose-100' 
                               : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100 cursor-pointer'
                           }`}
                         >

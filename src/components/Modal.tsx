@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, User, ClipboardList } from 'lucide-react';
+import { X, User, ClipboardList, Trash2, Save } from 'lucide-react';
 
-export default function Modal({ isOpen, onClose, onConfirm }) {
+export default function Modal({ isOpen, onClose, onConfirm, onDelete, reservation, isAdmin }) {
   const [activity, setActivity] = useState('');
   const [responsible, setResponsible] = useState('');
+  const isEditing = !!reservation;
 
   useEffect(() => {
     if (isOpen) {
-      setActivity('');
-      setResponsible('');
+      if (reservation) {
+        setActivity(reservation.activity || '');
+        setResponsible(reservation.responsible || '');
+      } else {
+        setActivity('');
+        setResponsible('');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, reservation]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -42,7 +48,9 @@ export default function Modal({ isOpen, onClose, onConfirm }) {
             <div className="absolute top-0 left-0 w-full h-2 bg-indigo-400" />
             
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">Nueva Reserva</h2>
+              <h2 className="text-2xl font-bold text-slate-800">
+                {isEditing ? 'Información de Reserva' : 'Nueva Reserva'}
+              </h2>
               <button 
                 onClick={onClose}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -61,7 +69,8 @@ export default function Modal({ isOpen, onClose, onConfirm }) {
                   type="text"
                   value={activity}
                   onChange={(e) => setActivity(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-100 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 outline-none transition-all bg-slate-50/50"
+                  disabled={isEditing && !isAdmin}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-100 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 outline-none transition-all bg-slate-50/50 disabled:opacity-70"
                   placeholder="Ej: Clase de Química I"
                   required
                 />
@@ -76,19 +85,44 @@ export default function Modal({ isOpen, onClose, onConfirm }) {
                   type="text"
                   value={responsible}
                   onChange={(e) => setResponsible(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-100 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 outline-none transition-all bg-slate-50/50"
+                  disabled={isEditing && !isAdmin}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-100 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 outline-none transition-all bg-slate-50/50 disabled:opacity-70"
                   placeholder="Ej: Dr. Juan Pérez"
                   required
                 />
               </div>
 
-              <div className="pt-4">
-                <button
-                  type="submit"
-                  className="w-full bg-indigo-400 text-white py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-100 active:scale-[0.98]"
-                >
-                  Confirmar Reserva
-                </button>
+              <div className="pt-4 space-y-3">
+                {(!isEditing || isAdmin) && (
+                  <button
+                    type="submit"
+                    className="w-full bg-indigo-400 text-white py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-100 active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    {isEditing ? <Save size={20} /> : null}
+                    {isEditing ? 'Modificar Reserva' : 'Confirmar Reserva'}
+                  </button>
+                )}
+
+                {isEditing && isAdmin && (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    className="w-full bg-rose-50 text-rose-600 py-4 rounded-2xl font-bold hover:bg-rose-100 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={20} />
+                    Eliminar Reserva
+                  </button>
+                )}
+
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full bg-slate-50 text-slate-500 py-4 rounded-2xl font-bold hover:bg-slate-100 transition-all active:scale-[0.98]"
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
             </form>
           </motion.div>
