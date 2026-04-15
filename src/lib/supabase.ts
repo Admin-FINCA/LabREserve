@@ -1,11 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+let supabase: SupabaseClient | null = null
 
-// Inicializar el cliente solo si las variables existen para evitar errores en runtime
-export const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+export function getSupabase(): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[Supabase] Variables no definidas. App sigue operativa sin Supabase.')
+    return null
+  }
+
+  if (!supabase) {
+    try {
+      supabase = createClient(supabaseUrl, supabaseAnonKey)
+    } catch (error) {
+      console.error('[Supabase] Error inicializando cliente:', error)
+      return null
+    }
+  }
+
+  return supabase
+}
+``
