@@ -9,145 +9,110 @@ import LabSchedule from './components/LabSchedule';
 import CavaCalendar from './components/CavaCalendar';
 import Modal from './components/Modal';
 import Login from './components/Login';
-import { format, parse } from 'date-fns';
+import { format, startOfWeek, addDays } from 'date-fns';
 import { useAuth, useProfile, useLaboratorios, useReservas } from './hooks/useSupabase';
 import { isSupabaseConfigured } from './lib/supabase';
 
+// Nombres de los días en español para mapeo interno
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
 export default function App() {
-  const [selectedSpace, setSelectedSpace] = useState('minas');
+  const [selectedSpace, setSelectedSpace] = useState('agronomia');
   const { user, loading: authLoading } = useAuth();
   const { profile, isAdmin, loading: profileLoading } = useProfile(user?.id);
   const { laboratorios } = useLaboratorios();
   
-  // Encontrar el ID del laboratorio actual basado en el slug (selectedSpace)
+  // Laboratorio seleccionado actualmente
   const currentLab = useMemo(() => 
     laboratorios.find(l => l.slug === selectedSpace),
     [laboratorios, selectedSpace]
   );
 
-  const { reservas: dbReservas, createReserva, updateReserva, deleteReserva, loading: resLoading } = useReservas(currentLab?.id);
+  const { 
+    reservas: dbReservas, 
+    createReserva, 
+    updateReserva, 
+    deleteReserva, 
+    loading: resLoading 
+  } = useReservas(currentLab?.id);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pendingReservationData, setPendingReservationData] = useState(null);
-  const [optimisticReservations, setOptimisticReservations] = useState({});
+  const [pendingReservationData, setPendingReservationData] = useState<any>(null);
+  const [optimisticReservations, setOptimisticReservations] = useState<any>({});
 
   // Mapear reservas de la DB al formato que esperan los componentes visuales
-  const reservations = useMemo(() => {
-    const map = {};
+  const reservationsMap = useMemo(() => {
+    const map: any = {};
+    
     dbReservas.forEach(res => {
+      let key = '';
       if (currentLab?.es_cava) {
         const hour = parseInt(res.hora_inicio.split(':')[0]);
-        const key = `cava-${res.fecha}-${hour}`;
-        map[key] = { 
-          id: res.id,
-          activity: res.actividad, 
-          responsible: res.nombre_responsable, 
-          usuario_creador: res.usuario_creador,
-          status: 'confirmed'
-        };
+        key = `cava-${res.fecha}-${hour}`;
       } else {
-        const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        // Para laboratorios semanales, determinamos el día de la semana
         const dateObj = new Date(res.fecha + 'T12:00:00');
-        const diaNombre = dias[dateObj.getDay()];
+        const diaIdx = (dateObj.getDay() + 6) % 7; // Ajuste para que Lunes sea 0
+        const diaNombre = DIAS_SEMANA[diaIdx];
         const hour = parseInt(res.hora_inicio.split(':')[0]);
-        const key = `${selectedSpace}-${diaNombre}-${hour}`;
-        map[key] = { 
-          id: res.id,
-          activity: res.actividad, 
-          responsible: res.nombre_responsable, 
-          usuario_creador: res.usuario_creador,
-          status: 'confirmed'
-        };
+        key = `${selectedSpace}-${diaNombre}-${hour}`;
       }
+
+      map[key] = { 
+        id: res.id,
+        activity: res.actividad, 
+        responsible: res.nombre_responsable, 
+        usuario_creador: res.usuario_creador
+      };
     });
 
-    // Aplicar actualizaciones optimistas al final para que tengan prioridad sobre los datos de la DB
-    Object.keys(optimisticReservations).forEach(key => {
-      map[key] = optimisticReservations[key];
-    });
-
-    return map;
+    // Sobrescribir con estados optimistas (creación/edición inmediata)
+    return { ...map, ...optimisticReservations };
   }, [dbReservas, selectedSpace, currentLab, optimisticReservations]);
 
-  // Limpiar reservas optimistas cuando los datos de la DB se sincronizan
+  // Limpiar estado optimista cuando cambian los datos reales (sincronización)
   useEffect(() => {
     setOptimisticReservations({});
   }, [dbReservas]);
 
-  // Efecto para scroll al inicio cuando cambia el espacio
+  // Reset de scroll al cambiar de vista
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [selectedSpace]);
 
-  // Asegurar que el espacio seleccionado sea válido para el rol del usuario
+  // Seguridad: Validar acceso del usuario al espacio seleccionado
   useEffect(() => {
     if (!isAdmin && !profileLoading && profile) {
-      const allowedSpaces = ['agronomia', 'parcela', 'cava'];
-      if (!allowedSpaces.includes(selectedSpace)) {
+      const allowed = ['agronomia', 'parcela', 'cava'];
+      if (!allowed.includes(selectedSpace)) {
         setSelectedSpace('agronomia');
       }
     }
   }, [isAdmin, profile, profileLoading, selectedSpace]);
 
-  if (!isSupabaseConfigured) {
-    return (
-      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-amber-100">
-          <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-4">Configuración Pendiente</h2>
-          <p className="text-slate-600 mb-6">
-            Para que el sistema funcione, necesitas configurar las variables de Supabase en el archivo <strong>.env</strong> o en el menú de <strong>Settings</strong>.
-          </p>
-          <div className="text-left bg-slate-50 p-4 rounded-xl text-xs font-mono text-slate-500 mb-6">
-            VITE_SUPABASE_URL<br/>
-            VITE_SUPABASE_ANON_KEY
-          </div>
-          <p className="text-sm text-slate-400 italic">
-            Una vez configuradas, la aplicación se conectará automáticamente.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // --- Manejadores de Eventos ---
 
-  // Si está cargando la sesión inicial, mostrar un loader simple
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const handleCellClick = (key: string) => {
+    const isReserved = !!reservationsMap[key];
 
-  // Si no hay usuario, mostrar pantalla de Login
-  if (!user) {
-    return <Login />;
-  }
-
-  const handleReserveClick = (key) => {
-    const isReserved = !!reservations[key];
-
-    // Restricción para usuarios normales: solo pueden agendar en Parcela
-    // En Agronomía y Cava solo pueden ver lo que ya está reservado
+    // Regla de negocio: No-admins solo pueden crear en Parcela
     if (!isAdmin && selectedSpace !== 'parcela' && !isReserved) {
       return; 
     }
 
-    // Extraer datos de la key (formato: space-dia-hora o cava-fecha-hora)
+    // Calcular fecha y hora a partir de la llave
     const parts = key.split('-');
-    let fecha, hora;
+    let fecha = '';
+    let hora = '';
 
     if (selectedSpace === 'cava') {
-      fecha = parts[1] + '-' + parts[2] + '-' + parts[3];
+      fecha = `${parts[1]}-${parts[2]}-${parts[3]}`; // cava-YYYY-MM-DD-HH
       hora = parts[4];
     } else {
-      // Para labs normales, calculamos la fecha de la semana actual basada en el día
-      const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      const diaIdx = dias.indexOf(parts[1]);
-      const now = new Date();
-      const monday = new Date(now.setDate(now.getDate() - now.getDay() + 1));
-      const targetDate = new Date(monday.setDate(monday.getDate() + diaIdx));
+      // Para labs semanales, calculamos la fecha real de "esta semana"
+      const diaIdx = DIAS_SEMANA.indexOf(parts[1]);
+      const startOfCurrentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const targetDate = addDays(startOfCurrentWeek, diaIdx);
       fecha = format(targetDate, 'yyyy-MM-dd');
       hora = parts[2];
     }
@@ -156,135 +121,159 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const handleConfirmReservation = async (data) => {
-    if (pendingReservationData && user) {
-      const existingRes = reservations[pendingReservationData.key];
-      
-      // Optimistic update
-      setOptimisticReservations(prev => ({
-        ...prev,
-        [pendingReservationData.key]: {
-          ...existingRes,
-          activity: data.activity,
-          responsible: data.responsible,
-          status: 'confirmed'
-        }
-      }));
-      setIsModalOpen(false);
+  const onConfirm = async (data: { activity: string, responsible: string }) => {
+    if (!pendingReservationData || !user || !currentLab) return;
 
-      if (existingRes && existingRes.id) {
-        // Update
-        const { error } = await updateReserva(existingRes.id, {
+    const existing = reservationsMap[pendingReservationData.key];
+    
+    // Actualización Optimista
+    setOptimisticReservations((prev: any) => ({
+      ...prev,
+      [pendingReservationData.key]: {
+        ...existing,
+        activity: data.activity,
+        responsible: data.responsible
+      }
+    }));
+    setIsModalOpen(false);
+
+    try {
+      if (existing?.id) {
+        // UPDATE
+        const { error } = await updateReserva(existing.id, {
           nombre_responsable: data.responsible,
           actividad: data.activity
         });
-        if (error) {
-          alert('Error al modificar: ' + error.message);
-          setOptimisticReservations({}); // Rollback
-        }
+        if (error) throw error;
       } else {
-        // Create
+        // CREATE
+        const hIni = parseInt(pendingReservationData.hora);
         const { error } = await createReserva({
           laboratorio_id: currentLab.id,
           fecha: pendingReservationData.fecha,
-          hora_inicio: `${pendingReservationData.hora.padStart(2, '0')}:00:00`,
-          hora_fin: `${(parseInt(pendingReservationData.hora) + 1).toString().padStart(2, '0')}:00:00`,
+          hora_inicio: `${hIni.toString().padStart(2, '0')}:00:00`,
+          hora_fin: `${(hIni + 1).toString().padStart(2, '0')}:00:00`,
           nombre_responsable: data.responsible,
           actividad: data.activity,
           usuario_creador: user.id
         });
-        if (error) {
-          alert('Error al reservar: ' + error.message);
-          setOptimisticReservations({}); // Rollback
-        }
+        if (error) throw error;
       }
+    } catch (err: any) {
+      alert(`Error en la operación: ${err.message}`);
+      setOptimisticReservations({}); // Rollback en caso de error
+    } finally {
       setPendingReservationData(null);
     }
   };
 
-  const handleDeleteReservation = async () => {
-    if (pendingReservationData && user) {
-      const existingRes = reservations[pendingReservationData.key];
-      if (existingRes && existingRes.id) {
-        // Optimistic delete
-        setOptimisticReservations(prev => {
-          const next = { ...prev };
-          delete next[pendingReservationData.key];
-          return next;
-        });
-        setIsModalOpen(false);
+  const onDelete = async () => {
+    const existing = pendingReservationData ? reservationsMap[pendingReservationData.key] : null;
+    if (!existing?.id) return;
 
-        const { error } = await deleteReserva(existingRes.id);
-        if (error) {
-          alert('Error al eliminar: ' + error.message);
-          setOptimisticReservations({}); // Rollback
-        }
-        setPendingReservationData(null);
-      }
+    if (!confirm('¿Estás seguro de eliminar esta reserva?')) return;
+
+    // Delete Optimista
+    setOptimisticReservations((prev: any) => {
+      const next = { ...prev };
+      delete next[pendingReservationData.key];
+      return next;
+    });
+    setIsModalOpen(false);
+
+    try {
+      const { error } = await deleteReserva(existing.id);
+      if (error) throw error;
+    } catch (err: any) {
+      alert(`Error al eliminar: ${err.message}`);
+      setOptimisticReservations({}); // Rollback
+    } finally {
+      setPendingReservationData(null);
     }
   };
 
-  const getSpaceTitle = () => {
-    const titles = {
-      minas: 'Laboratorio de Minas',
-      agronomia: 'Laboratorio de Agronomía',
-      construccion: 'Laboratorio de Construcción',
-      robotica: 'Laboratorio de Robótica',
-      parcela: 'Parcela Demostrativa',
-      cava: 'Cava de Vinos'
-    };
-    return titles[selectedSpace] || 'Laboratorio';
-  };
+  // --- Renderizado de Estados de Carga / Error ---
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center p-4">
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center border border-amber-100">
+          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-8 animate-bounce">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          </div>
+          <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tight">Configuración Necesaria</h2>
+          <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+            El sistema requiere las claves de acceso a Supabase para funcionar. Por favor, configúralas en el archivo <strong>.env</strong>.
+          </p>
+          <div className="bg-slate-50 p-6 rounded-2xl text-[10px] font-mono text-slate-400 text-left border border-slate-100">
+            VITE_SUPABASE_URL<br/>VITE_SUPABASE_ANON_KEY
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+          <span className="text-slate-400 font-bold text-sm animate-pulse tracking-widest uppercase">Iniciando Sistema</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F0] flex">
-      {/* Sidebar Fijo */}
+    <div className="min-h-screen bg-[#F5F5F0] flex selection:bg-indigo-100 selection:text-indigo-900">
       <Sidebar 
         selectedSpace={selectedSpace} 
         onSelectSpace={setSelectedSpace} 
         profile={profile}
       />
 
-      {/* Contenido Principal */}
-      <main className="flex-1 ml-64 p-8 lg:p-12">
+      <main className="flex-1 ml-64 p-8 lg:p-12 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
-          {/* Header de la Vista */}
-          <header className="mb-10">
-            <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm uppercase tracking-widest mb-2">
-              <span className="w-8 h-[2px] bg-indigo-200"></span>
-              Reserva de Espacios
+          <header className="mb-12 relative">
+            <div className="absolute -left-6 -top-2 w-12 h-12 bg-white/50 rounded-full blur-2xl -z-10" />
+            <div className="flex items-center gap-3 text-indigo-500 font-black text-xs uppercase tracking-[0.2em] mb-3">
+              <span className="w-10 h-[3px] bg-indigo-500 rounded-full"></span>
+              Panel de Reservas
             </div>
-            <h1 className="text-4xl lg:text-5xl font-black text-slate-800 tracking-tight">
-              {getSpaceTitle()}
+            <h1 className="text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter mb-2">
+              {currentLab?.nombre || 'Laboratorio'}
             </h1>
+            <p className="text-slate-400 font-medium">Gestión horaria y disponibilidad en tiempo real.</p>
           </header>
 
-          {/* Renderizado Condicional de Vistas */}
-          <div className="animate-in fade-in duration-700">
+          <div className="transition-all duration-500 ease-in-out">
             {selectedSpace === 'cava' ? (
               <CavaCalendar 
-                reservations={reservations} 
-                onReserve={handleReserveClick} 
+                reservations={reservationsMap} 
+                onReserve={handleCellClick} 
               />
             ) : (
               <LabSchedule 
                 spaceId={selectedSpace} 
-                reservations={reservations} 
-                onReserve={handleReserveClick} 
+                reservations={reservationsMap} 
+                onReserve={handleCellClick} 
               />
             )}
           </div>
 
-          {/* Footer Informativo */}
-          <footer className="mt-12 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-400 text-sm font-medium">
-            <p>© 2026 LabReserve System. Todos los derechos reservados.</p>
-            <div className="flex gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+          <footer className="mt-20 pt-10 border-t border-slate-200/60 flex flex-col md:flex-row justify-between items-center gap-6 text-slate-400 text-xs font-bold uppercase tracking-widest">
+            <p className="opacity-60 italic">© 2026 LabReserve | UVM Labs Platform</p>
+            <div className="flex gap-8">
+              <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
                 <span>Disponible</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-500"></div>
+              <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-lg shadow-rose-200"></div>
                 <span>Reservado</span>
               </div>
             </div>
@@ -292,16 +281,12 @@ export default function App() {
         </div>
       </main>
 
-      {/* Modal de Formulario */}
       <Modal 
         isOpen={isModalOpen} 
-        onClose={() => {
-          setIsModalOpen(false);
-          setPendingReservationData(null);
-        }} 
-        onConfirm={handleConfirmReservation}
-        onDelete={handleDeleteReservation}
-        reservation={pendingReservationData ? reservations[pendingReservationData.key] : null}
+        onClose={() => setIsModalOpen(false)} 
+        onConfirm={onConfirm}
+        onDelete={onDelete}
+        reservation={pendingReservationData ? reservationsMap[pendingReservationData.key] : null}
         isAdmin={isAdmin}
       />
     </div>

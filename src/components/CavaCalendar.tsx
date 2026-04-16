@@ -36,46 +36,46 @@ export default function CavaCalendar({ reservations, onReserve }) {
     end: endDate,
   });
 
-  const handleDateClick = (day) => {
-    setSelectedDate(day);
+  const handleDateClick = (day: Date) => {
+    setSelectedDate(startOfDay(day));
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
       {/* Calendar View */}
-      <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden p-6">
-        <div className="flex items-center justify-between mb-8">
+      <div className="lg:col-span-2 bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/40 border border-slate-100 overflow-hidden p-8">
+        <div className="flex items-center justify-between mb-10">
           <div className="flex flex-col">
-            <h2 className="text-2xl font-bold text-slate-900 capitalize">
+            <h2 className="text-3xl font-black text-slate-900 capitalize tracking-tighter">
               {format(currentMonth, 'MMMM yyyy', { locale: es })}
             </h2>
-            <span className="text-sm text-slate-500 font-medium">Selecciona un día para ver horarios</span>
+            <p className="text-sm text-slate-400 font-bold uppercase tracking-widest mt-1">Disponibilidad Mensual</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={prevMonth}
-              className="p-2 hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors text-slate-600"
+              className="p-3 hover:bg-slate-50 rounded-2xl border-2 border-slate-50 transition-all hover:border-slate-100 text-slate-500 hover:text-indigo-600 active:scale-90"
             >
               <ChevronLeft size={20} />
             </button>
             <button
               onClick={nextMonth}
-              className="p-2 hover:bg-slate-50 rounded-xl border border-slate-100 transition-colors text-slate-600"
+              className="p-3 hover:bg-slate-50 rounded-2xl border-2 border-slate-50 transition-all hover:border-slate-100 text-slate-500 hover:text-indigo-600 active:scale-90"
             >
               <ChevronRight size={20} />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 mb-4">
+        <div className="grid grid-cols-7 gap-3 mb-6">
           {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => (
-            <div key={day} className="text-center text-xs font-bold text-slate-400 uppercase tracking-wider py-2">
+            <div key={day} className="text-center text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] py-2">
               {day}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-3">
           {calendarDays.map((day, idx) => {
             const isSelected = isSameDay(day, selectedDate);
             const isCurrentMonth = isSameMonth(day, monthStart);
@@ -85,19 +85,19 @@ export default function CavaCalendar({ reservations, onReserve }) {
               <button
                 key={idx}
                 onClick={() => handleDateClick(day)}
-                className={`relative aspect-square rounded-2xl flex flex-col items-center justify-center transition-all duration-200 group ${
-                  !isCurrentMonth ? 'opacity-30' : ''
+                className={`relative aspect-square rounded-[1.5rem] flex flex-col items-center justify-center transition-all duration-300 group border-2 ${
+                  !isCurrentMonth ? 'opacity-20 pointer-events-none' : ''
                 } ${
                   isSelected 
-                    ? 'bg-[#0061ff] text-white shadow-lg shadow-blue-200' 
-                    : 'hover:bg-slate-50 text-slate-700'
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-200 scale-105 z-10' 
+                    : 'bg-white border-transparent hover:border-slate-100 hover:bg-slate-50 text-slate-700'
                 }`}
               >
-                <span className={`text-lg font-bold ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                <span className={`text-xl font-black tracking-tight ${isSelected ? 'text-white' : 'text-slate-800'}`}>
                   {format(day, 'd')}
                 </span>
                 {isTodayDay && !isSelected && (
-                  <div className="absolute bottom-2 w-1 h-1 rounded-full bg-[#0061ff]" />
+                  <div className="absolute bottom-3 w-1.5 h-1.5 rounded-full bg-indigo-500" />
                 )}
               </button>
             );
@@ -106,52 +106,55 @@ export default function CavaCalendar({ reservations, onReserve }) {
       </div>
 
       {/* Hourly Blocks for Selected Day */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-slate-50 bg-slate-50/50">
-          <div className="flex items-center gap-3 mb-1">
-            <CalendarIcon size={18} className="text-[#0061ff]" />
-            <h3 className="font-bold text-slate-900">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/40 border border-slate-100 overflow-hidden flex flex-col">
+        <div className="p-8 border-b border-slate-50 bg-slate-50/30">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="p-2.5 bg-indigo-100 rounded-xl text-indigo-600 shadow-sm">
+              <CalendarIcon size={20} />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 tracking-tight capitalize leading-tight">
               {format(selectedDate, "EEEE, d 'de' MMMM", { locale: es })}
             </h3>
           </div>
-          <p className="text-xs text-slate-500 font-medium ml-7">Horarios disponibles para reserva</p>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest ml-14">Horarios disponibles</p>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 space-y-3 max-h-[600px]">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[600px] custom-scrollbar">
           {hours.map(hour => {
             const dateStr = format(selectedDate, 'yyyy-MM-dd');
             const reservationKey = `cava-${dateStr}-${hour}`;
-            const isReserved = reservations[reservationKey];
+            const reservation = reservations[reservationKey];
+            const isReserved = !!reservation;
             const timeStr = `${hour.toString().padStart(2, '0')}:00`;
             
             return (
               <button
                 key={hour}
                 onClick={() => onReserve(reservationKey)}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl border group transition-transform active:scale-[0.98] ${
+                className={`w-full flex items-center justify-between p-5 rounded-3xl border-2 transition-all duration-300 group active:scale-[0.98] ${
                   isReserved 
-                    ? 'bg-rose-50 border-rose-100 text-rose-600' 
-                    : 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 cursor-pointer'
+                    ? 'bg-rose-50/40 border-rose-100/50 text-rose-600' 
+                    : 'bg-white border-slate-50 hover:border-emerald-100 hover:bg-emerald-50/50 text-slate-700'
                 }`}
               >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className={`p-2 rounded-xl shrink-0 ${isReserved ? 'bg-rose-100' : 'bg-slate-100 group-hover:bg-emerald-100'}`}>
-                    <Clock size={16} className={isReserved ? 'text-rose-500' : 'text-slate-500 group-hover:text-emerald-500'} />
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className={`p-3 rounded-2xl transition-all ${isReserved ? 'bg-rose-100/50' : 'bg-slate-50 group-hover:bg-emerald-100/50'}`}>
+                    <Clock size={18} className={isReserved ? 'text-rose-500' : 'text-slate-400 group-hover:text-emerald-500'} />
                   </div>
-                  <div className="flex flex-col text-left overflow-hidden">
-                    <span className="font-bold font-mono">{timeStr}</span>
+                  <div className="flex flex-col text-left min-w-0">
+                    <span className="text-sm font-black text-slate-900 font-mono tracking-tighter">{timeStr}</span>
                     {isReserved && (
-                      <div className="flex flex-col">
-                        <span className="text-[11px] font-bold truncate">{reservations[reservationKey].activity}</span>
-                        <span className="text-[9px] font-medium opacity-70 truncate">{reservations[reservationKey].responsible}</span>
+                      <div className="flex flex-col mt-0.5 animate-in slide-in-from-left-2">
+                        <span className="text-[11px] font-black leading-none truncate text-rose-500">{reservation.activity}</span>
+                        <span className="text-[9px] font-bold opacity-60 uppercase tracking-wider truncate mt-1">{reservation.responsible}</span>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                  isReserved ? 'bg-rose-200 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.15em] shrink-0 border ${
+                  isReserved ? 'bg-rose-100 border-rose-200 text-rose-700' : 'bg-emerald-100 border-emerald-200 text-emerald-700 transition-all opacity-0 group-hover:opacity-100'
                 }`}>
-                  {isReserved ? 'Reservado' : 'Disponible'}
+                  {isReserved ? 'Reservado' : 'Reservar'}
                 </div>
               </button>
             );
