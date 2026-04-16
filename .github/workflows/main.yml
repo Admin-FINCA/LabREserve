@@ -5,24 +5,46 @@ on:
     branches:
       - main
 
+# Permisos necesarios para publicar en GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Descargar el repositorio
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
+      # 2. Configurar Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-  
+
+      # 3. Instalar dependencias (forma correcta en CI)
       - name: Install dependencies
         run: npm ci
 
+      # 4. Build del proyecto (Vite → genera dist/)
       - name: Build project
         run: npm run build
 
-      - name: Print working directory
-        run: pwd
+      # 5. Subir dist/ como artefacto para Pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # 6. Publicar en GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
